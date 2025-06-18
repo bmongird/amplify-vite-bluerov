@@ -10,6 +10,7 @@ const schema = a.schema({
   GGmsg: a
     .model({
       payload: a.json(),
+      image_data: a.string()
     })
     .authorization((allow) => [allow.publicApiKey()]),
 });

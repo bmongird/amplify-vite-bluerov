@@ -10,19 +10,21 @@ export default function MsgList() {
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [currentPosition, setCurrentPosition] = useState<{x: number, y: number} | null>(null);
   const [batteryInfo, setBatteryInfo] = useState<any>(null);
+  const [speedInfo, setSpeedInfo] = useState<any>(null);
+  const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [backgroundImageDimensions, setBackgroundImageDimensions] = useState<{width: number, height: number, offsetX: number, offsetY: number} | null>(null);
   const [isMessageBoxCollapsed, setIsMessageBoxCollapsed] = useState(false);
   const [isBatteryBoxCollapsed, setIsBatteryBoxCollapsed] = useState(false);
+  const [isImageBoxCollapsed, setIsImageBoxCollapsed] = useState(false);
   const backgroundContainerRef = useRef<HTMLDivElement>(null);
   const pollingInterval = useRef<NodeJS.Timeout>();
 
   const fetchAllMessages = async () => {
     try {
       const { data } = await client.models.GGmsg.list();
-      setMsg(data);
       setLastFetchTime(new Date());
       
-      // Process messages to extract position and battery info
+      // Process messages to extract position, battery info, and images
       data.forEach(message => {
         try {
           const parsedPayload = typeof message.payload === 'string' 
@@ -38,17 +40,28 @@ export default function MsgList() {
           else if (message.id == "xps-pixhawk") {
             setBatteryInfo(parsedPayload);
           }
+          else if (message.id == "xps-image") {
+            // Handle base64 encoded image
+            if (message.image_data) {
+              const base64Image = `data:image/jpeg;base64,${message.image_data}`;
+              setCurrentImage(base64Image);
+            }
+          }
           
         } catch (error) {
           console.error("Error parsing message payload:", error);
         }
       });
+      
+      // Filter out image messages from the display array
+      const filteredMessages = data.filter(message => message.id !== "xps-image");
+      setMsg(filteredMessages);
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
   };
 
-  // Calculate the actual background image dimensions and position for cover behavior
+  // calculate actual background image dimensions and position for cover behavior
   const calculateBackgroundImageDimensions = () => {
     if (!backgroundContainerRef.current) return;
 
@@ -56,7 +69,7 @@ export default function MsgList() {
     const containerWidth = container.offsetWidth;
     const containerHeight = container.offsetHeight;
 
-    // Create a temporary image to get the natural dimensions
+    // make a tmp image to get the natural dimensions
     const img = new Image();
     img.onload = () => {
       const imageAspectRatio = img.naturalWidth / img.naturalHeight;
@@ -65,12 +78,12 @@ export default function MsgList() {
       let scale, offsetX, offsetY;
 
       if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider - scale to fit height, crop width
+        // image is wider, scale to fit height, crop width
         scale = containerHeight / img.naturalHeight;
         offsetX = (containerWidth - (img.naturalWidth * scale)) / 2;
         offsetY = 0;
       } else {
-        // Image is taller - scale to fit width, crop height  
+        // image is taller, scale to fit width, crop height  
         scale = containerWidth / img.naturalWidth;
         offsetX = 0;
         offsetY = (containerHeight - (img.naturalHeight * scale)) / 2;
@@ -86,15 +99,13 @@ export default function MsgList() {
     img.src = Background;
   };
 
-  // Helper function to convert coordinates relative to the full background image
   const convertToScreenPosition = (x: number, y: number) => {
     if (!backgroundImageDimensions) return { screenX: 0, screenY: 0 };
 
-    // Convert from your coordinate system (-100 to 100 x, -50 to 50 y) to full image coordinates
-    const imageX = ((x + 100) / 200) * backgroundImageDimensions.width;
-    const imageY = ((50 - y) / 100) * backgroundImageDimensions.height; // Flip Y axis
+    // convert coords
+    const imageX = ((x + 300) / 600) * backgroundImageDimensions.width;
+    const imageY = ((150 - y) / 300) * backgroundImageDimensions.height; // Flip Y axis
 
-    // Add the image offset to get the final screen position
     const screenX = imageX + backgroundImageDimensions.offsetX;
     const screenY = imageY + backgroundImageDimensions.offsetY;
 
@@ -131,7 +142,6 @@ export default function MsgList() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Calculate background dimensions on mount and resize
   useEffect(() => {
     calculateBackgroundImageDimensions();
     
@@ -174,7 +184,8 @@ export default function MsgList() {
       }}>
         Last updated: {lastFetchTime.toLocaleTimeString()}
       </div>
-      {/* Red dot that moves based on position */}
+
+      {/* red position dot */}
       {currentPosition && backgroundImageDimensions && (() => {
         const { screenX, screenY } = convertToScreenPosition(currentPosition.x, currentPosition.y);
         return (
@@ -195,7 +206,7 @@ export default function MsgList() {
       })()}
       
 
-      {/* Message box container in corner */}
+      {/* msg box */}
       <div style={{
         position: 'absolute',
         top: '20px',
@@ -212,7 +223,6 @@ export default function MsgList() {
         zIndex: 20,
         transition: 'all 0.3s ease-in-out'
       }}>
-        {/* Header with collapse button */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -298,7 +308,7 @@ export default function MsgList() {
         )}
       </div>
 
-      {/* Battery info box */}
+      {/* battery box */}
       <div style={{
         position: 'absolute',
         top: '20px',
@@ -316,7 +326,6 @@ export default function MsgList() {
         textAlign: 'center',
         transition: 'all 0.3s ease-in-out'
       }}>
-        {/* Header with collapse button */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -352,6 +361,96 @@ export default function MsgList() {
           }}>
             {batteryInfo}
           </p>
+        )}
+      </div>
+
+      {/* image box */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '20px',
+        width: '300px',
+        maxHeight: isImageBoxCollapsed ? 'auto' : '350px',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #ccc',
+        borderRadius: '8px',
+        padding: '16px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        backdropFilter: 'blur(5px)',
+        overflow: 'auto',
+        textAlign: 'center',
+        transition: 'all 0.3s ease-in-out'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: isImageBoxCollapsed ? '0' : '12px'
+        }}>
+          <h3 style={{ 
+            fontSize: '16px', 
+            color: '#333',
+            margin: '0',
+            fontWeight: '600',
+            flex: 1,
+            textAlign: 'left'
+          }}>
+            Live Image Feed
+          </h3>
+          <button
+            onClick={() => setIsImageBoxCollapsed(!isImageBoxCollapsed)}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '16px',
+              cursor: 'pointer',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              color: '#666',
+              transition: 'background-color 0.2s ease',
+              marginLeft: '8px'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            {isImageBoxCollapsed ? '▼' : '▲'}
+          </button>
+        </div>
+
+        {!isImageBoxCollapsed && (
+          <div style={{
+            maxHeight: '280px',
+            overflowY: 'auto',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            {currentImage ? (
+              <img 
+                src={currentImage}
+                alt="Live feed"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '260px',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd',
+                  objectFit: 'contain'
+                }}
+                onError={(e) => {
+                  console.error('Image failed to load:', e);
+                }}
+              />
+            ) : (
+              <p style={{ 
+                color: '#888', 
+                fontStyle: 'italic',
+                margin: 0,
+                padding: '20px'
+              }}>
+                No image available
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
