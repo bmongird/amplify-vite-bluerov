@@ -1,6 +1,5 @@
 // App.tsx - Refactored BlueROV Dashboard
 import React from 'react';
-import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
 import { BlueROVDashboard } from './components/dashboard/dashboard';
