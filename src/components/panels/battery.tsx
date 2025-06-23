@@ -20,7 +20,6 @@ export const BatteryPanel: React.FC<BatteryPanelProps> = ({ batteryInfo }) => {
   };
 
   const batteryLevel = getBatteryLevel();
-  const batteryPercentage = batteryInfo?.battery_remaining_pct || 0;
 
   return (
     <CollapsiblePanel
