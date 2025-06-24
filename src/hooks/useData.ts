@@ -1,49 +1,54 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Schema } from '../../amplify/data/resource';
 import { generateClient } from 'aws-amplify/data';
+import { pubsub } from '../utils/pubsub';
 
 const client = generateClient<Schema>();
 
 interface BlueROVData {
-  messages: Schema["GGmsg"]["type"][];
+  positionInfo: any;
   lastFetchTime: Date;
   currentPosition: { x: number; y: number } | null;
   batteryInfo: any;
   currentImage: string | null;
-  isLoading: boolean;
   error: Error | null;
 }
 
 export const useBlueROVData = (): BlueROVData => {
-  const [messages, setMessages] = useState<Schema["GGmsg"]["type"][]>([]);
+  const [positionInfo, setPositionInfo] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [currentPosition, setCurrentPosition] = useState<{ x: number; y: number } | null>(null);
   const [batteryInfo, setBatteryInfo] = useState<any>(null);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   
-  const pollingInterval = useRef<NodeJS.Timeout>();
+  pubsub.subscribe({topics: ['iot/bluerov/pose/slow', 'iot/bluerov/image/slow', 'iot/bluerov/pixhawk_hw/slow', 'iot/bluerov/speed/slow']}).subscribe({
+    next: (data) => {
+      processMessage(data);
+    },
+    error: (error) => console.error(error)
+  });
 
-  const processMessage = useCallback((message: Schema["GGmsg"]["type"]) => {
+  const processMessage = useCallback((message: any) => {
     try {
-      const parsedPayload = typeof message.payload === 'string' 
-        ? JSON.parse(message.payload) 
-        : message.payload;
+      setLastFetchTime(new Date())
+      // retrieving topic symbol
+      let symbol = Object.getOwnPropertySymbols(message)[0];
 
-      switch (message.id) {
-        case "xps-pose":
+      switch (message[symbol]) {
+        case "iot/bluerov/pose/slow":
           setCurrentPosition({
-            x: parsedPayload.position.x,
-            y: parsedPayload.position.y
+            x: message.payload.position.x,
+            y: message.payload.position.y
           });
+          setPositionInfo(message.payload)
           break;
         
-        case "xps-pixhawk":
-          setBatteryInfo(parsedPayload);
+        case "iot/bluerov/pixhawk_hw/slow":
+          setBatteryInfo(message.payload);
           break;
         
-        case "xps-image":
+        case "iot/bluerov/image/slow":
           if (message.image_data) {
             const base64Image = `data:image/jpeg;base64,${message.image_data}`;
             setCurrentImage(base64Image);
@@ -55,68 +60,12 @@ export const useBlueROVData = (): BlueROVData => {
     }
   }, []);
 
-  const fetchAllMessages = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const { data } = await client.models.GGmsg.list();
-      setLastFetchTime(new Date());
-      
-      // Process each message
-      data.forEach(processMessage);
-      
-      // Filter out image messages from the display array
-      const filteredMessages = data.filter(message => message.id !== "xps-image");
-      setMessages(filteredMessages);
-    } catch (err) {
-      setError(err as Error);
-      console.error("Error fetching messages:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [processMessage]);
-
-  // Polling setup with visibility change handling
-  useEffect(() => {
-    const startPolling = () => {
-      fetchAllMessages();
-      pollingInterval.current = setInterval(fetchAllMessages, 1000);
-    };
-
-    const stopPolling = () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        startPolling();
-      }
-    };
-
-    // Initial start
-    startPolling();
-
-    // Handle visibility changes
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [fetchAllMessages]);
-
   return {
-    messages,
+    positionInfo,
     lastFetchTime,
     currentPosition,
     batteryInfo,
     currentImage,
-    isLoading,
     error
   };
 };

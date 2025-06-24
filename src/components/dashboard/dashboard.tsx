@@ -4,7 +4,7 @@ import { useBackgroundImageDimensions } from '../../hooks/useBackground';
 
 import { BackgroundMap } from '../background/background';
 import { PositionMarker } from '../marker/marker';
-import { MessagesPanel } from '../panels/messages';
+import { PositionPanel } from '../panels/position';
 import { BatteryPanel } from '../panels/battery';
 import { ImagePanel } from '../panels/image';
 import { LastUpdatedIndicator } from '../panels/lastUpdated';
@@ -15,12 +15,11 @@ import Background from '../../assets/ss_opensea.png';
 export const BlueROVDashboard: React.FC = (
   ) => {
   const {
-    messages,
+    positionInfo,
     lastFetchTime,
     currentPosition,
     batteryInfo,
     currentImage,
-    isLoading,
     error
   } = useBlueROVData();
 
@@ -33,7 +32,7 @@ export const BlueROVDashboard: React.FC = (
     return (
       <div className="error-container">
         <h2>Connection Error</h2>
-        <p>Unable to connect to BlueROV: {error.message}</p>
+        <p>Unable to connect to sim: {error.message}</p>
       </div>
     );
   }
@@ -48,9 +47,8 @@ export const BlueROVDashboard: React.FC = (
         backgroundImageDimensions={backgroundImageDimensions}
       />
 
-      <MessagesPanel 
-        messages={messages}
-        isLoading={isLoading}
+      <PositionPanel 
+        positionInfo={positionInfo}
       />
 
       <BatteryPanel 
