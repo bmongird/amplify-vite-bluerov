@@ -6,7 +6,7 @@ interface PositionPanelProps {
 }
 
 export const PositionPanel: React.FC<PositionPanelProps> = ({
-  positionInfo,
+  positionInfo
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -35,7 +35,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
       title="Position"
       isCollapsed={isCollapsed}
       onToggle={() => setIsCollapsed(!isCollapsed)}
-      position={{ top: '20px', right: '20px' }}
+      position={{right:'20px', top:'20px'}}
       width="250px"
       maxHeight="400px"
     >
@@ -49,9 +49,9 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
             No position data yet
           </p>
         ) : (
-          <p>
+          <>
             {renderMessage(positionInfo)}
-          </p>
+          </>
         )}
       </div>
     </CollapsiblePanel>

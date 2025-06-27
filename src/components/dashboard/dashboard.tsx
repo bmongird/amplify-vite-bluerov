@@ -1,27 +1,32 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useBlueROVData } from '../../hooks/useData';
 import { useBackgroundImageDimensions } from '../../hooks/useBackground';
-
 import { BackgroundMap } from '../background/background';
 import { PositionMarker } from '../marker/marker';
 import { PositionPanel } from '../panels/position';
 import { BatteryPanel } from '../panels/battery';
 import { ImagePanel } from '../panels/image';
 import { LastUpdatedIndicator } from '../panels/lastUpdated';
+import { SendCommandPanel } from '../panels/sendCommand';
+import { UUVSelectPanel } from '../panels/uuvSelect'
 
 import Background from '../../assets/ss_opensea.png';
 
 
 export const BlueROVDashboard: React.FC = (
   ) => {
+  const [uuvSelected, setUUVSelected] = useState<string | null>(null);
+
+  const colors = ['red', 'blue', 'green', 'yellow'];
+  
   const {
     positionInfo,
     lastFetchTime,
-    currentPosition,
+    allPositions,
     batteryInfo,
     currentImage,
     error
-  } = useBlueROVData();
+  } = useBlueROVData(uuvSelected);
 
   const {
     backgroundImageDimensions,
@@ -36,32 +41,43 @@ export const BlueROVDashboard: React.FC = (
       </div>
     );
   }
+  
 
   return (
-    <BackgroundMap 
-      backgroundImage={Background}
-      containerRef={backgroundContainerRef}
-    >
-      <PositionMarker 
-        position={currentPosition}
-        backgroundImageDimensions={backgroundImageDimensions}
-      />
+      <BackgroundMap 
+        backgroundImage={Background}
+        containerRef={backgroundContainerRef}
+      >
+        <UUVSelectPanel uuvSelected={uuvSelected} setUUVSelected={setUUVSelected}/>
+        {Object.entries(allPositions).map(([uuvId, position], index) => (
+          <PositionMarker
+            key={uuvId}
+            uuvID={uuvId}
+            selectedUUVId={uuvSelected}
+            position={position}
+            color={colors[index % colors.length]}
+            backgroundImageDimensions={backgroundImageDimensions}
+          />
+        ))}
 
-      <PositionPanel 
-        positionInfo={positionInfo}
-      />
 
-      <BatteryPanel 
-        batteryInfo={batteryInfo}
-      />
+          <PositionPanel 
+            positionInfo={positionInfo}
+          />
 
-      <ImagePanel 
-        currentImage={currentImage}
-      />
+          <BatteryPanel 
+            batteryInfo={batteryInfo}
+          />
 
-      <LastUpdatedIndicator 
-        lastFetchTime={lastFetchTime}
-      />
-    </BackgroundMap>
+          <ImagePanel 
+            currentImage={currentImage}
+          />
+
+          <LastUpdatedIndicator 
+            lastFetchTime={lastFetchTime}
+          />
+
+          <SendCommandPanel uuvID={uuvSelected}/>
+      </BackgroundMap>
   );
 };
