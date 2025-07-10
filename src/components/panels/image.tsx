@@ -23,7 +23,7 @@ export const ImagePanel: React.FC<ImagePanelProps> = ({ currentImage }) => {
       title="Live Image Feed"
       isCollapsed={isCollapsed}
       onToggle={() => setIsCollapsed(!isCollapsed)}
-      position={{ bottom: '20px', left: '20px' }}
+      position={{ bottom: '10px', left: '10px' }}
       width="300px"
       maxHeight="350px"
     >

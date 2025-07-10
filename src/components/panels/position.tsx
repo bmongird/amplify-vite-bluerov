@@ -35,7 +35,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
       title="Position"
       isCollapsed={isCollapsed}
       onToggle={() => setIsCollapsed(!isCollapsed)}
-      position={{right:'20px', top:'20px'}}
+      position={{right:'275px', top:'10px'}}
       width="250px"
       maxHeight="400px"
     >
@@ -46,7 +46,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
       }}>  
         {!positionInfo ? (
           <p style={{ color: '#888', fontStyle: 'italic', textAlign: 'center' }}>
-            No position data yet
+            No position data available
           </p>
         ) : (
           <>

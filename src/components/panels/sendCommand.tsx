@@ -22,7 +22,6 @@ export const SendCommandPanel: React.FC<SendCommandProps> = ({ uuvID }) => {
   };
 
   const handleSendCommand = async (): Promise<void> => {
-    // Early return if uuvID is null
     if (!uuvID) {
       alert('No device selected');
       return;
@@ -100,7 +99,7 @@ export const SendCommandPanel: React.FC<SendCommandProps> = ({ uuvID }) => {
       title="Send a command"
       isCollapsed={isCollapsed}
       onToggle={() => setIsCollapsed(!isCollapsed)}
-      position={{ bottom: '20px', right: '20px' }}
+      position={{ bottom: '20px', right: '10px' }}
       width="400px"
       maxHeight="200px"
     >

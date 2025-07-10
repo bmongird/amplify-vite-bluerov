@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Schema } from '../../amplify/data/resource';
 import { generateClient } from 'aws-amplify/data';
 import { pubsub } from '../utils/pubsub';
+import { SonarPanelProps } from '../components/panels/sonar';
 
 const client = generateClient<Schema>();
 
@@ -12,22 +13,36 @@ interface BlueROVData {
   batteryInfo: any;
   currentImage: string | null;
   error: Error | null;
+  sonarProps: SonarPanelProps | null;
 }
 
-const initialPositions: Record<string, { x: number; y: number }> = {
-  uuv0: { x: 0, y: 0 },
-  uuv1: { x: 0, y: 0 },
-  uuv2: { x: 0, y: 0 },
-  uuv3: { x: 0, y: 0 },
-};
+export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueROVData => {
+  
+  // generates initial positions based on num of uuvs
+  const initialPositions = useMemo(() => {
+    const positions: Record<string, { x: number; y: number }> = {};
+    for (let i = 0; i < totalUUVs; i++) {
+      positions[`uuv${i}`] = { x: 0, y: 0 };
+    }
+    return positions;
+  }, [totalUUVs]);
 
-export const useBlueROVData = (uuv: string | null): BlueROVData => {
   const [positionInfo, setPositionInfo] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
   const [batteryInfo, setBatteryInfo] = useState<any>(null);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [allPositions, setAllPositions] = useState(initialPositions);
+  const [sonarProps, setSonarProps] = useState<SonarPanelProps | null>(null);
+
+  // generate pose topics
+  const poseTopics = useMemo(() => {
+    const topics: string[] = [];
+    for (let i = 0; i < totalUUVs; i++) {
+      topics.push(`iot/uuv${i}/pose/slow`);
+    }
+    return topics;
+  }, [totalUUVs]);
 
   const processMessage = useCallback((message: any) => {
     try {
@@ -38,10 +53,10 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
 
       setLastFetchTime(new Date());
 
-      // Match pose topic
-      const poseMatch = topic.match(/^iot\/(uuv[0-9])\/pose\/slow$/);
+      const poseMatch = topic.match(/^iot\/(uuv[0-9]+)\/pose\/slow$/);
       if (poseMatch && message.payload?.position) {
         const uuvId = poseMatch[1];
+        console.log(`processing pose messsage for ${uuvId}`)
         const pos = {
           x: message.payload.position.x,
           y: message.payload.position.y
@@ -58,6 +73,30 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
         return;
       }
 
+      if (topic === `pipe/detection/result` && message.mask_jpg_b64) {
+        const base64ImageMask = `data:image/jpeg;base64,${message.mask_jpg_b64}`;
+        const base64ImageOriginal = `data:image/jpeg;base64,${message.original_image}`;
+        if (message.cam_side === 'l') {
+          setSonarProps(prev => ({
+            leftImage: base64ImageMask,
+            originalLeftImage: base64ImageOriginal,
+            rightImage: prev?.rightImage ?? null,
+            originalRightImage: prev?.originalRightImage ?? null,
+            pipeDetectedLeft: message.pipe_detected,
+            pipeDetectedRight: prev?.pipeDetectedRight ?? null,
+          }));
+        } else if (message.cam_side === 'r') {
+          setSonarProps(prev => ({
+            leftImage: prev?.leftImage ?? null,
+            originalLeftImage: prev?.originalLeftImage ?? null,
+            rightImage: base64ImageMask,
+            originalRightImage: base64ImageOriginal,
+            pipeDetectedLeft: prev?.pipeDetectedLeft ?? null,
+            pipeDetectedRight: message.pipe_detected,
+          }));
+        }
+      }
+
       if (topic === `iot/${uuv}/image/slow` && message.image_data) {
         const base64Image = `data:image/jpeg;base64,${message.image_data}`;
         setCurrentImage(base64Image);
@@ -69,15 +108,10 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
     }
   }, [uuv]);
 
+  // dynamically subscribe to positions depending on num of uuvs
   useEffect(() => {
-    // Static pose subscriptions
     const poseSubscription = pubsub.subscribe({
-      topics: [
-        `iot/uuv0/pose/slow`,
-        `iot/uuv1/pose/slow`,
-        `iot/uuv2/pose/slow`,
-        `iot/uuv3/pose/slow`,
-      ]
+      topics: poseTopics
     }).subscribe({
       next: processMessage,
       error: (err) => {
@@ -87,7 +121,35 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
     });
 
     return () => poseSubscription.unsubscribe?.();
-  }, [processMessage]);
+  }, [poseTopics, processMessage]);
+
+  // add new uuvs
+  useEffect(() => {
+    setAllPositions(prev => {
+      const newPositions = { ...prev };
+      
+      // set pos of new uuvs
+      for (let i = 0; i < totalUUVs; i++) {
+        const uuvId = `uuv${i}`;
+        if (!newPositions[uuvId]) {
+          newPositions[uuvId] = { x: 0, y: 0 };
+        }
+      }
+      
+      const validUUVs = new Set();
+      for (let i = 0; i < totalUUVs; i++) {
+        validUUVs.add(`uuv${i}`);
+      }
+      
+      for (const uuvId in newPositions) {
+        if (!validUUVs.has(uuvId)) {
+          delete newPositions[uuvId];
+        }
+      }
+      
+      return newPositions;
+    });
+  }, [totalUUVs]);
 
   useEffect(() => {
     if (!uuv) return;
@@ -95,7 +157,8 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
     const subscription = pubsub.subscribe({
       topics: [
         `iot/${uuv}/image/slow`,
-        `iot/${uuv}/pixhawk_hw/slow`,
+        `pipe/detection/result`, // this should change to have an associated uuv
+        `iot/${uuv}/pixhawk_hw/slow`
       ]
     }).subscribe({
       next: processMessage,
@@ -110,6 +173,7 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
       setPositionInfo(null);
       setBatteryInfo(null);
       setCurrentImage(null);
+      setSonarProps(null);
       setError(null);
     };
   }, [uuv, processMessage]);
@@ -121,5 +185,6 @@ export const useBlueROVData = (uuv: string | null): BlueROVData => {
     batteryInfo,
     currentImage,
     error,
+    sonarProps,
   };
 };

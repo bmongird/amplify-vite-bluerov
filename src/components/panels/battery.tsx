@@ -26,7 +26,7 @@ export const BatteryPanel: React.FC<BatteryPanelProps> = ({ batteryInfo }) => {
       title="Battery Status"
       isCollapsed={isCollapsed}
       onToggle={() => setIsCollapsed(!isCollapsed)}
-      position={{ top: '20px', left: '20px' }}
+      position={{ top: '10px', left: '50px' }}
       width="200px"
       maxHeight="200px"
     >

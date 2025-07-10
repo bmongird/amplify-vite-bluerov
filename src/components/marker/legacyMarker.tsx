@@ -1,3 +1,5 @@
+// Not using this anymore, switched to the leaflet built in markers
+
 import React from 'react';
 import { Tooltip } from 'react-tooltip';
 import 'react-tooltip/dist/react-tooltip.css';
