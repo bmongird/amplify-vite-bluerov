@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { pubsub } from '../utils/pubsub';
 
-interface PublishMessage {
-  command: string;
-  timestamp: string;
-}
+// interface PublishMessage {
+//   command: string;
+//   timestamp: string;
+// }
 
 interface UsePublishMessageReturn {
   publishMessage: (topic: string, message: string) => Promise<void>;

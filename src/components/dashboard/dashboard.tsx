@@ -35,7 +35,6 @@ export const BlueROVDashboard: React.FC = () => {
   } = useBlueROVData(uuvSelected, numberOfUUVs);
 
   const {
-    backgroundImageDimensions,
     backgroundContainerRef
   } = useBackgroundImageDimensions('');
 

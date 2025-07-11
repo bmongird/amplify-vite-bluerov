@@ -21,7 +21,7 @@ export const PositionPanel: React.FC<PositionPanelProps> = ({
             wordBreak: 'break-word',
             fontFamily: 'Monaco, Consolas, "Courier New", monospace'
           }}>
-            {JSON.stringify(positionInfo, null, 2)}
+            {JSON.stringify(message, null, 2)}
           </pre>
       );
     } catch (error) {

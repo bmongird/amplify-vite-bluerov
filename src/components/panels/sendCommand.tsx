@@ -7,7 +7,7 @@ interface SendCommandProps {
 }
 
 export const SendCommandPanel: React.FC<SendCommandProps> = ({ uuvID }) => {
-  const { publishMessage, lastError, clearError } = usePublishMessage();
+  const { publishMessage } = usePublishMessage();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [commandText, setCommandText] = useState('{\n "msg": "hello"\n}');
   const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');

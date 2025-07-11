@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { Schema } from '../../amplify/data/resource';
-import { generateClient } from 'aws-amplify/data';
 import { pubsub } from '../utils/pubsub';
 import { SonarPanelProps } from '../components/panels/sonar';
 
-const client = generateClient<Schema>();
 
 interface BlueROVData {
   positionInfo: any;
