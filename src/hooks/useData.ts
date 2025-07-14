@@ -1,122 +1,187 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Schema } from '../../amplify/data/resource';
-import { generateClient } from 'aws-amplify/data';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { pubsub } from '../utils/pubsub';
+import { SonarPanelProps } from '../components/panels/sonar';
 
-const client = generateClient<Schema>();
 
 interface BlueROVData {
-  messages: Schema["GGmsg"]["type"][];
+  positionInfo: any;
   lastFetchTime: Date;
-  currentPosition: { x: number; y: number } | null;
+  allPositions: Record<string, { x: number; y: number }>;
   batteryInfo: any;
   currentImage: string | null;
-  isLoading: boolean;
   error: Error | null;
+  sonarProps: SonarPanelProps | null;
 }
 
-export const useBlueROVData = (): BlueROVData => {
-  const [messages, setMessages] = useState<Schema["GGmsg"]["type"][]>([]);
+export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueROVData => {
+  
+  // generates initial positions based on num of uuvs
+  const initialPositions = useMemo(() => {
+    const positions: Record<string, { x: number; y: number }> = {};
+    for (let i = 0; i < totalUUVs; i++) {
+      positions[`uuv${i}`] = { x: 0, y: 0 };
+    }
+    return positions;
+  }, [totalUUVs]);
+
+  const [positionInfo, setPositionInfo] = useState<any>(null);
   const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
-  const [currentPosition, setCurrentPosition] = useState<{ x: number; y: number } | null>(null);
   const [batteryInfo, setBatteryInfo] = useState<any>(null);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  
-  const pollingInterval = useRef<NodeJS.Timeout>();
+  const [allPositions, setAllPositions] = useState(initialPositions);
+  const [sonarProps, setSonarProps] = useState<SonarPanelProps | null>(null);
 
-  const processMessage = useCallback((message: Schema["GGmsg"]["type"]) => {
-    try {
-      const parsedPayload = typeof message.payload === 'string' 
-        ? JSON.parse(message.payload) 
-        : message.payload;
-
-      switch (message.id) {
-        case "xps-pose":
-          setCurrentPosition({
-            x: parsedPayload.position.x,
-            y: parsedPayload.position.y
-          });
-          break;
-        
-        case "xps-pixhawk":
-          setBatteryInfo(parsedPayload);
-          break;
-        
-        case "xps-image":
-          if (message.image_data) {
-            const base64Image = `data:image/jpeg;base64,${message.image_data}`;
-            setCurrentImage(base64Image);
-          }
-          break;
-      }
-    } catch (error) {
-      console.error("Error parsing message payload:", error);
+  // generate pose topics
+  const poseTopics = useMemo(() => {
+    const topics: string[] = [];
+    for (let i = 0; i < totalUUVs; i++) {
+      topics.push(`iot/uuv${i}/pose/slow`);
     }
-  }, []);
+    return topics;
+  }, [totalUUVs]);
 
-  const fetchAllMessages = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
+  const processMessage = useCallback((message: any) => {
     try {
-      const { data } = await client.models.GGmsg.list();
+      const symbol = Object.getOwnPropertySymbols(message)[0];
+      const topic = message[symbol];
+
+      if (!topic) return;
+
       setLastFetchTime(new Date());
-      
-      // Process each message
-      data.forEach(processMessage);
-      
-      // Filter out image messages from the display array
-      const filteredMessages = data.filter(message => message.id !== "xps-image");
-      setMessages(filteredMessages);
+
+      const poseMatch = topic.match(/^iot\/(uuv[0-9]+)\/pose\/slow$/);
+      if (poseMatch && message.payload?.position) {
+        const uuvId = poseMatch[1];
+        console.log(`processing pose messsage for ${uuvId}`)
+        const pos = {
+          x: message.payload.position.x,
+          y: message.payload.position.y
+        };
+        setAllPositions(prev => ({ ...prev, [uuvId]: pos }));
+        if (topic === `iot/${uuv}/pose/slow`){
+          setPositionInfo(message.payload);
+        }
+        return;
+      }
+
+      if (topic === `iot/${uuv}/pixhawk_hw/slow` && message.payload) {
+        setBatteryInfo(message.payload);
+        return;
+      }
+
+      if (topic === `pipe/detection/result` && message.mask_jpg_b64) {
+        const base64ImageMask = `data:image/jpeg;base64,${message.mask_jpg_b64}`;
+        const base64ImageOriginal = `data:image/jpeg;base64,${message.original_image}`;
+        if (message.cam_side === 'l') {
+          setSonarProps(prev => ({
+            leftImage: base64ImageMask,
+            originalLeftImage: base64ImageOriginal,
+            rightImage: prev?.rightImage ?? null,
+            originalRightImage: prev?.originalRightImage ?? null,
+            pipeDetectedLeft: message.pipe_detected,
+            pipeDetectedRight: prev?.pipeDetectedRight ?? null,
+          }));
+        } else if (message.cam_side === 'r') {
+          setSonarProps(prev => ({
+            leftImage: prev?.leftImage ?? null,
+            originalLeftImage: prev?.originalLeftImage ?? null,
+            rightImage: base64ImageMask,
+            originalRightImage: base64ImageOriginal,
+            pipeDetectedLeft: prev?.pipeDetectedLeft ?? null,
+            pipeDetectedRight: message.pipe_detected,
+          }));
+        }
+      }
+
+      if (topic === `iot/${uuv}/image/slow` && message.image_data) {
+        const base64Image = `data:image/jpeg;base64,${message.image_data}`;
+        setCurrentImage(base64Image);
+        return;
+      }
     } catch (err) {
+      console.error("Error processing message:", err);
       setError(err as Error);
-      console.error("Error fetching messages:", err);
-    } finally {
-      setIsLoading(false);
     }
-  }, [processMessage]);
+  }, [uuv]);
 
-  // Polling setup with visibility change handling
+  // dynamically subscribe to positions depending on num of uuvs
   useEffect(() => {
-    const startPolling = () => {
-      fetchAllMessages();
-      pollingInterval.current = setInterval(fetchAllMessages, 1000);
-    };
-
-    const stopPolling = () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
+    const poseSubscription = pubsub.subscribe({
+      topics: poseTopics
+    }).subscribe({
+      next: processMessage,
+      error: (err) => {
+        console.error(err);
+        setError(err);
       }
-    };
+    });
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopPolling();
-      } else {
-        startPolling();
+    return () => poseSubscription.unsubscribe?.();
+  }, [poseTopics, processMessage]);
+
+  // add new uuvs
+  useEffect(() => {
+    setAllPositions(prev => {
+      const newPositions = { ...prev };
+      
+      // set pos of new uuvs
+      for (let i = 0; i < totalUUVs; i++) {
+        const uuvId = `uuv${i}`;
+        if (!newPositions[uuvId]) {
+          newPositions[uuvId] = { x: 0, y: 0 };
+        }
       }
-    };
+      
+      const validUUVs = new Set();
+      for (let i = 0; i < totalUUVs; i++) {
+        validUUVs.add(`uuv${i}`);
+      }
+      
+      for (const uuvId in newPositions) {
+        if (!validUUVs.has(uuvId)) {
+          delete newPositions[uuvId];
+        }
+      }
+      
+      return newPositions;
+    });
+  }, [totalUUVs]);
 
-    // Initial start
-    startPolling();
-
-    // Handle visibility changes
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+  useEffect(() => {
+    if (!uuv) return;
+  
+    const subscription = pubsub.subscribe({
+      topics: [
+        `iot/${uuv}/image/slow`,
+        `pipe/detection/result`, // this should change to have an associated uuv
+        `iot/${uuv}/pixhawk_hw/slow`
+      ]
+    }).subscribe({
+      next: processMessage,
+      error: (err) => {
+        console.error(err);
+        setError(err);
+      }
+    });
+  
     return () => {
-      stopPolling();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      subscription.unsubscribe?.();
+      setPositionInfo(null);
+      setBatteryInfo(null);
+      setCurrentImage(null);
+      setSonarProps(null);
+      setError(null);
     };
-  }, [fetchAllMessages]);
+  }, [uuv, processMessage]);
 
   return {
-    messages,
+    positionInfo,
     lastFetchTime,
-    currentPosition,
+    allPositions,
     batteryInfo,
     currentImage,
-    isLoading,
-    error
+    error,
+    sonarProps,
   };
 };

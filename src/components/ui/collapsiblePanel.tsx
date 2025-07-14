@@ -1,4 +1,5 @@
 import React from 'react';
+import { Panel } from './panel';
 
 interface CollapsiblePanelProps {
   title: string;
@@ -24,29 +25,19 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
   maxHeight,
   children
 }) => (
-  <div style={{
-    position: 'absolute',
-    ...position,
-    width,
-    maxHeight: isCollapsed ? 'auto' : maxHeight,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    border: '1px solid #ccc',
-    borderRadius: '8px',
-    padding: '16px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    backdropFilter: 'blur(5px)',
-    overflow: 'auto',
-    zIndex: 20,
-    transition: 'all 0.3s ease-in-out'
-  }}>
+  <Panel
+    position={position}
+    width={width}
+    maxHeight={isCollapsed ? 'auto' : maxHeight}
+  >
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: isCollapsed ? '0' : '12px'
     }}>
-      <h3 style={{ 
-        fontSize: '16px', 
+      <h3 style={{
+        fontSize: '16px',
         color: '#333',
         margin: '0',
         fontWeight: '600',
@@ -72,7 +63,6 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
         {isCollapsed ? '▼' : '▲'}
       </button>
     </div>
-    
     {!isCollapsed && children}
-  </div>
+  </Panel>
 );
