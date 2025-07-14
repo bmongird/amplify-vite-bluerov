@@ -4,5 +4,5 @@ import { PubSub } from '@aws-amplify/pubsub';
 export const pubsub = new PubSub({
     region: 'us-east-2',
     endpoint:
-      '{ENDPOINT}'
+      'wss://a3sa7caljdtq41-ats.iot.us-east-2.amazonaws.com/mqtt'
   });
