@@ -1,9 +1,11 @@
 ## Overview
-This is a demo of an AWS-powered web interface for [AbLECPS](https://ablecps.github.io/) built with React. It's designed to be modular and easy to modify to promote its use as a jumping-off point for the upcoming AWS Hackathon hosted by [Vanderbilt ISIS](https://www.isis.vanderbilt.edu/) in Fall 2025.
+This is a demo of an AWS-powered web interface for [AbLECPS](https://ablecps.github.io/) built with React/Vite. It's designed to be modular and easy to modify to promote its use as a jumping-off point for the upcoming AWS Hackathon hosted by [Vanderbilt ISIS](https://www.isis.vanderbilt.edu/) in Fall 2025.
 
 You can view a deployed version of the website [here](). Note that any data will be blank as no data is stored in a database; it strictly uses AWS IoT Core's messaging to showcase the functionality provided by AWS IoT Core.
 
-This project is designed to work with the AbLECPS ROS/MQTT AWS messaging layer [here](https://github.com). This uses the AWS IoT Core MQTT platform, but theoretically this project could be modified to work with some other MQTT broker. I will not be covering any of the AWS IoT Core functionality in this documentation; you may refer to the aforementioned repo for more information regarding setup and functionality for that. This web interface also makes use of the AWS Lambda function for sonar imagery and ML pipe detection contained in the above repo.
+This project is designed to work with the AbLECPS ROS/MQTT AWS messaging layer [here](https://github.com/bmongird/greengrass-ablecps-integration). This uses the AWS IoT Core MQTT platform, but theoretically this project could be modified to work with some other MQTT broker. I will not be covering any of the AWS IoT Core functionality in this documentation; you may refer to the aforementioned repo for more information regarding setup and functionality for that. This web interface also makes use of the AWS Lambda function for sonar imagery and ML pipe detection contained in the above repo.
+
+_DISCLAIMER:_ While I've tried my best to make this dashboard as efficient as I can, I by no means claim this is the best, only, cheapest, or most efficient way to accomplish the task of transmitting and displaying data from the AbLECPS simulator. It exists to showcase certain capabilities of the AWS suite and as a starting point for Hackathon projects.
 
 ## Setup
 *NOTE: This setup assumes you have an AWS account, AbLECPS installed, and the ROS/MQTT AWS messaging layer functional.*

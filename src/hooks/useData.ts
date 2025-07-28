@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { pubsub } from '../utils/pubsub';
 import { SonarPanelProps } from '../components/panels/sonar';
 
-
 interface BlueROVData {
   positionInfo: any;
   lastFetchTime: Date;
@@ -36,7 +35,7 @@ export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueR
   const poseTopics = useMemo(() => {
     const topics: string[] = [];
     for (let i = 0; i < totalUUVs; i++) {
-      topics.push(`iot/uuv${i}/pose/slow`);
+      topics.push(`iot/uuv${i}/pose`);
     }
     return topics;
   }, [totalUUVs]);
@@ -50,22 +49,22 @@ export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueR
 
       setLastFetchTime(new Date());
 
-      const poseMatch = topic.match(/^iot\/(uuv[0-9]+)\/pose\/slow$/);
-      if (poseMatch && message.payload?.position) {
+      const poseMatch = topic.match(/^iot\/(uuv[0-9]+)\/pose$/);
+      if (poseMatch && message.pose?.position) {
         const uuvId = poseMatch[1];
         console.log(`processing pose messsage for ${uuvId}`)
         const pos = {
-          x: message.payload.position.x,
-          y: message.payload.position.y
+          x: message.pose.position.x,
+          y: message.pose.position.y
         };
         setAllPositions(prev => ({ ...prev, [uuvId]: pos }));
-        if (topic === `iot/${uuv}/pose/slow`){
-          setPositionInfo(message.payload);
+        if (topic === `iot/${uuv}/pose`){
+          setPositionInfo(message.pose);
         }
         return;
       }
 
-      if (topic === `iot/${uuv}/pixhawk_hw/slow` && message.payload) {
+      if (topic === `iot/${uuv}/pixhawk_hw` && message.batt_capacity_remaining) {
         setBatteryInfo(message.payload);
         return;
       }
@@ -94,7 +93,7 @@ export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueR
         }
       }
 
-      if (topic === `iot/${uuv}/image/slow` && message.image_data) {
+      if (topic === `iot/${uuv}/image` && message.image_data) {
         const base64Image = `data:image/jpeg;base64,${message.image_data}`;
         setCurrentImage(base64Image);
         return;
@@ -153,9 +152,9 @@ export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueR
   
     const subscription = pubsub.subscribe({
       topics: [
-        `iot/${uuv}/image/slow`,
+        `iot/${uuv}/image`,
         `pipe/detection/result`, // this should change to have an associated uuv
-        `iot/${uuv}/pixhawk_hw/slow`
+        `iot/${uuv}/pixhawk_hw`
       ]
     }).subscribe({
       next: processMessage,
