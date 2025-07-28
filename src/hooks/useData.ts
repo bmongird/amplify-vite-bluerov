@@ -65,7 +65,7 @@ export const useBlueROVData = (uuv: string | null, totalUUVs: number = 4): BlueR
       }
 
       if (topic === `iot/${uuv}/pixhawk_hw` && message.batt_capacity_remaining) {
-        setBatteryInfo(message.payload);
+        setBatteryInfo(message.batt_capacity_remaining);
         return;
       }
 
